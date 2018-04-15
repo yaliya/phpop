@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Login</title>
+	</head>
+	<body>
+		{% if error %}
+		<div style="color:red">{{ error }}</div>
+		{% endif %}
+		<form action="/login" method="POST">
+			<input type="username" name="username">
+			<input type="password" name="password">
+			<input type="submit" value="Login">
+		</form>
+	</body>
+</html>

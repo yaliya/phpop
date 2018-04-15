@@ -1,0 +1,17 @@
+{
+    "name": "yaliya/aggregate",
+    "authors": [
+        {
+            "name": "Yusuf Aliya",
+            "email": "yaliyyaa@gmail.com"
+        }
+    ],
+    "require": {
+        "twig/twig": "^1.35"
+    },
+    "autoload": {
+	    "psr-4": {
+	        "App\\": "app"
+	    }
+	}
+}
