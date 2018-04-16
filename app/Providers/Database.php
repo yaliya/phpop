@@ -26,7 +26,7 @@ class Database
 		
 			self::$instance = new self();
 
-			$conn = new \PDO('mysql:host=localhost;dbname=homestead;charset=utf8', $username, $password);
+			$conn = new \PDO('mysql:host='.$host.';dbname='.$database.';charset=utf8', $username, $password);
 
 			$conn->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 
@@ -38,9 +38,29 @@ class Database
 
 	public function raw($query, $values = [])
 	{
-		$this->query = $query;
+		$this->query = $query . ' ';
 
 		$this->values = $values;
+
+		return $this;
+	}
+
+	public function whereHas($relation, $callback)
+	{
+		$query = @end(explode('(', $this->query));
+
+		if(strpos($query, 'WHERE EXISTS') !== false) {
+
+			$this->query .= 'AND EXISTS ( SELECT 1 FROM ' . $relation . ' ';
+		}
+		else {
+
+			$this->query .= 'WHERE EXISTS ( SELECT 1 FROM ' . $relation . ' ';
+		}
+
+		call_user_func_array($callback, [$this]);
+
+		$this->query .= ' ) ';
 
 		return $this;
 	}
@@ -66,23 +86,56 @@ class Database
 		return $this;
 	}
 
-	public function where($field, $value)
+	public function append($query, $values = [])
 	{
-		$this->query .= 'WHERE ' . $field . '=:' . $field . ' ';
+		$this->query .= $query;
 
-		$this->values[':'.$field] = $value;
+		$this->values = array_merge($this->values, $values);
 
 		return $this;
 	}
 
-	public function andWhere($field, $value)
+	public function appendAs($callback)
 	{
-		$this->query .= 'AND ' . $field . '=:' . $field . ' ';
-
-		$this->values[':'.$field] = $value;
+		call_user_func_array($callback, [$this]);
 
 		return $this;
- 	}
+	}
+
+	public function where($field, $value, $plain = false)
+	{
+		$query = @end(explode('(', $this->query));
+
+		if(strpos($query, 'WHERE') !== false) {
+			
+			if(!$plain) {
+
+				$this->query .= 'AND ' . $field . '=:' . $field . ' ';
+
+				$this->values[':'.$field] = $value;
+			}
+
+			else {
+
+				$this->query .= 'AND ' . $field . '=' . $value . ' ';
+			}
+		}
+		else {
+
+			if(!$plain) {
+
+				$this->query .= 'WHERE ' . $field . '=:' . $field . ' ';
+
+				$this->values[':'.$field] = $value;
+			}
+			else {
+
+				$this->query .= 'WHERE ' . $field . '=' . $value . ' ';
+			}
+		}
+
+		return $this;
+	}
 
 	public function join($table)
 	{
@@ -212,7 +265,7 @@ class Database
 		}
 		else {
 
-			return$data;	
+			return $data;	
 		}
 	}
 
