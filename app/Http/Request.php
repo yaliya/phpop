@@ -43,12 +43,12 @@ class Request
 
 	public function has($param)
 	{
-		if($_SERVER["REQUEST_METHOD" == "GET"]) 
+		if($_SERVER["REQUEST_METHOD"] == "GET") 
 		{
 			return isset($this->query->$param);
 		}
 
-		else if($_SERVER["REQUEST_METHOD" == "POST"])
+		else if($_SERVER["REQUEST_METHOD"] == "POST")
 		{
 			return isset($this->input->$param);
 		}
