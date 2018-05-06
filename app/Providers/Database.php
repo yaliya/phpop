@@ -10,35 +10,18 @@ class Database
 
 	private $values = [];
 
-	private $relations = [
+	private $connection = NULL;
 
-		'withMany' => [], 
-
-		'withOne' => []];
-
-	private static $instance = NULL;
-
-	private static $connection = NULL;
-
-	public static function init($host, $database, $username, $password)
+	public function __construct($host, $database, $username, $password)
 	{
-		if(!self::$instance) {
-		
-			self::$instance = new self();
+		$this->connection = new \PDO('mysql:host='.$host.';dbname='.$database.';charset=utf8', $username, $password);
 
-			$conn = new \PDO('mysql:host=localhost;dbname=homestead;charset=utf8', $username, $password);
-
-			$conn->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-
-			self::$connection = $conn;
-		}
-
-		return self::$instance;
+		$this->connection->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 	}
 
 	public function raw($query, $values = [])
 	{
-		$this->query = $query;
+		$this->query = $query . ' ';
 
 		$this->values = $values;
 
@@ -47,14 +30,18 @@ class Database
 
 	public function query()
 	{
-		return new self();
+		$this->table = '';
+
+		$this->query = '';
+
+		$this->values = [];
+
+		return $this;
 	}
 
 	public function select($fields = "*") 
 	{
-		$this->query .= 'SELECT ' . $fields . ' ';
-
-		return $this;
+		return $this->raw('SELECT ' . $fields);
 	}
 
 	public function from($from) 
@@ -66,29 +53,293 @@ class Database
 		return $this;
 	}
 
-	public function where($field, $value)
+	public function append($query, $values = [])
 	{
-		$this->query .= 'WHERE ' . $field . '=:' . $field . ' ';
+		if(is_callable($query)) {
 
-		$this->values[':'.$field] = $value;
+			call_user_func_array($query, [$this]);
+
+			return $this;
+		}
+
+		$this->query .= $query . ' ';
+
+		$this->values = array_merge($this->values, $values);
 
 		return $this;
 	}
 
-	public function andWhere($field, $value)
+	public function where($field, $value)
 	{
-		$this->query .= 'AND ' . $field . '=:' . $field . ' ';
+		$plain = false;
 
-		$this->values[':'.$field] = $value;
+		$operator = '=';
+
+		if(func_num_args() == 2) {
+
+			list($field, $value) = func_get_args();
+		}
+
+		if(func_num_args() == 3) {
+
+			list($field, $operator, $value) = func_get_args();
+		}
+
+		if(func_num_args() == 4) {
+
+
+			list($field, $operator, $value, $plain) = func_get_args();
+		}
+
+		$query = @end(explode('(', $this->query));
+
+		if(strpos($query, 'WHERE') !== false) {
+			
+			if(!$plain) {
+
+				// $this->query .= 'AND ' . $this->table . '.' . $field . ' ' . $operator . ' ' . ':' . $field . ' ';
+
+				if(array_key_exists(':'.$field, $this->values)) {
+
+					$attrib = $field . '_' . count($this->values);
+
+					$this->values[$attrib] = $value;
+
+					$this->query .= 'AND ' . $field . ' ' . $operator . ' ' . ':' . $attrib . ' ';
+				}
+				else {
+
+					$this->values[':'.$field] = $value;
+
+					$this->query .= 'AND ' . $field . ' ' . $operator . ' ' . ':' . $field . ' ';
+				}
+			}
+
+			else {
+
+				$this->query .= 'AND ' . $field . ' ' . $operator . ' ' . $value . ' ';
+			}
+		}
+		else {
+
+			if(!$plain) {
+
+				$this->query .= 'WHERE ' . $field . ' '. $operator . ' ' . ':' . $field . ' ';
+
+				$this->values[':'.$field] = $value;
+			}
+			else {
+
+				$this->query .= 'WHERE ' . $field . ' ' . $operator . ' ' . $value . ' ';
+			}
+		}
 
 		return $this;
- 	}
+	}
+
+	public function orWhere($field, $value)
+	{
+		$operator = '=';
+
+		if(func_num_args() == 2) {
+
+			list($field, $value) = func_get_args();
+		}
+
+		if(func_num_args() == 3) {
+
+			list($field, $operator, $value) = func_get_args();
+		}
+
+		$query = @end(explode('(', $this->query));
+
+		if(strpos($query, 'WHERE') !== false || strpos($query, 'AND') !== false) {
+
+			if(array_key_exists(':'.$field, $this->values)) {
+
+				$attrib = $field . '_' . count($this->values);
+
+				$this->values[$attrib] = $value;
+
+				$this->query .= 'OR ' . $field . ' ' . $operator . ' ' . ':' . $attrib . ' ';
+			}
+			else {
+
+				$this->values[':'.$field] = $value;
+
+				$this->query .= 'OR ' . $field . ' ' . $operator . ' ' . ':' . $field . ' ';
+			}
+		}
+		else {
+
+			$this->query .= 'WHERE ' . $field . ' '. $operator . ' ' . ':' . $field . ' ';
+
+			$this->values[':'.$field] = $value;
+
+		}
+
+		return $this;
+	}
+
+
+	public function whereHas($relation, $callback)
+	{
+
+		$this->table = explode('.', $relation)[0];
+
+		if(count(explode('WHERE', $this->query)) > 1 || count(explode('WHERE EXISTS (', $this->query)) > 1) {
+
+			$this->query .= 'AND EXISTS ( SELECT 1 FROM ' . $relation . ' ';
+		}
+		else {
+
+			$this->query .= 'WHERE EXISTS ( SELECT 1 FROM ' . $relation . ' ';
+		}
+
+		call_user_func_array($callback, [$this]);
+
+		$this->query .= ' ) ';
+
+		return $this;
+	}
+
+	public function whereHasNot($relation, $callback)
+	{
+
+		$this->table = explode('.', $relation)[0];
+
+		if(count(explode('WHERE', $this->query)) > 1 || count(explode('WHERE NOT EXISTS (', $this->query)) > 1) {
+
+			$this->query .= 'AND NOT EXISTS ( SELECT 1 FROM ' . $relation . ' ';
+		}
+		else {
+
+			$this->query .= 'WHERE NOT EXISTS ( SELECT 1 FROM ' . $relation . ' ';
+		}
+
+		call_user_func_array($callback, [$this]);
+
+		$this->query .= ' ) ';
+
+		return $this;
+	}
+
+	public function whereIn($attribute, $values)
+	{
+		$query = @end(explode('(', $this->query));
+
+		if(strpos($query, 'WHERE') !== false) {
+			
+			$this->query .= 'AND ( ';
+		}
+
+		else {
+
+			$this->query .= 'WHERE ( ';
+		}
+
+		$index = 0;
+
+		$operator = '=';
+
+		if(func_num_args() == 2) {
+
+			list($attribute, $values) = func_get_args();
+		}
+
+		if(func_num_args() == 3) {
+
+			list($attributes, $operator, $values) = func_get_args();
+		}
+
+		//Begin loop values
+		foreach($values as $value) {
+
+			//:attribute_0, :attribute_1, :attribute_2
+			$param = $attribute . '_' . $index;
+
+			if(array_key_exists(':'.$param, $this->values)) {
+				
+				$param = $param . '_' . count($this->values);
+
+				$this->values[':'.$param] = $value;
+			}
+			else {
+
+				$this->values[':'.$param] = $value;
+			}
+
+			//append to query attribute = :attribute_0
+			$this->query .= $attribute . ' ' . $operator . ' ' . ':' . $param;
+			//If not in end of array
+			if($index != count($values) - 1) {
+				//Appends OR to query
+				$this->query .= ' OR ';
+			}
+
+			//Index
+			$index++;
+		}
+
+		//Close query
+		$this->query .= ')';
+
+		return $this;
+	}
+
+	public function whereRaw($query, $values = [])
+	{
+		$qq = @end(explode('(', $this->query));
+
+		if(strpos($qq, 'WHERE') !== false) {
+
+			$this->query .= 'AND ' . $query . ' ';
+		}
+		else {
+
+			$this->query .= 'WHERE ' . $query . ' ';
+		}
+
+		foreach($values as $key => $value) {
+
+			if(array_key_exists($key, $this->values)) {
+
+				$attrib = str_replace(':', '', $key);
+
+				$attrib = ':'.count($this->values).$attrib;
+
+				$this->values[$attrib] = $value;
+			}
+			else {
+
+				$this->values[$key] = $value;
+			}
+		}
+
+		return $this;
+	}
 
 	public function join($table)
 	{
 		$this->query .= 'JOIN ' . $table . ' ON ' . $this->table;
 
 		$this->query .= '.' .'id' . '=' . $table . '.' . $this->table.'_id ';
+
+		return $this;
+	}
+
+	public function orderBy($attrib, $value)
+	{
+		$this->query .= 'ORDER BY ' . $attrib . ' ' . $value . ' ';
+
+		return $this;
+	}
+
+	public function limit($start, $end = NULL) {
+
+		$this->query .= 'LIMIT ' . $start . ' ';
+
+		if($end) $this->query .= 'OFFSET ' . $end;
 
 		return $this;
 	}
@@ -107,69 +358,15 @@ class Database
 		return $this;
 	}
 
-	private function parseRelations($data)
-	{
-		foreach($this->relations['withMany'] as $relation) {
-
-			$query = 'SELECT * FROM ' . $relation['table'] . ' WHERE ' . $this->table . '_id = :id';
-
-			$stmt = self::$connection->prepare($query);
-
-			$stmt->execute([':id' => $data['id']]);
-
-			$attribute = isset($relation['attributes']['as']) ? $relation['attributes']['as'] : $relation['table'];
-
-			$callback = isset($relation['attributes']['transform']) ? $relation['attributes']['transform'] : $stmt->fetchAll();
-
-			if(is_callable($callback)) {
-
-				while($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-
-					$data[$attribute][] = call_user_func_array($callback, [json_decode(json_encode($row, true))]);
-				}
-			}
-			else {
-
-				$data[$attribute] = $callback;
-			}
-		}
-
-		foreach($this->relations['withOne'] as $relation) {
-
-			$query = 'SELECT * FROM ' . $relation['table'] . ' WHERE ' . $relation['table'] .'.id = :id';
-
-			$stmt = self::$connection->prepare($query);
-
-			$stmt->execute([':id' => $data[$relation['table'].'_id']]);
-
-			$attribute = isset($relation['attributes']['as']) ? $relation['attributes']['as'] : $relation['table'];
-
-			$callback = isset($relation['attributes']['transform']) ? $relation['attributes']['transform'] : $stmt->fetch(\PDO::FETCH_ASSOC);
-
-			if(is_callable($callback)) {
-
-				$data[$attribute] = call_user_func_array($callback, [json_decode(json_encode($stmt->fetch(\PDO::FETCH_ASSOC), true))]);
-			}
-			else {
-
-				$data[$attribute] = $callback;
-			}
-		}
-
-		return $data;
-	}
-
 	public function get($tcallback = NULL)
 	{
-		$stmt = self::$connection->prepare($this->query);
+		$stmt = $this->connection->prepare($this->query);
 
 		$stmt->execute($this->values);
 
 		$rdata = [];
-
+		
 		foreach($stmt->fetchAll(\PDO::FETCH_ASSOC) as $data) {
-
-			$data = $this->parseRelations($data);
 
 			if(is_callable($tcallback)) {
 
@@ -178,6 +375,8 @@ class Database
 				$args[] = $this;
 
 				$args[] = json_decode(json_encode($data, true));
+
+				$args[] = $stmt->rowCount();
 
 				$rdata[] = call_user_func_array($tcallback, $args);
 			}
@@ -192,32 +391,35 @@ class Database
 
 	public function first($tcallback = NULL) {
 
-		$stmt = self::$connection->prepare($this->query);
+		$stmt = $this->connection->prepare($this->query);
 
 		$stmt->execute($this->values);
 
 		$data = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-		$data = $this->parseRelations($data);
+		if($stmt->rowCount() > 0) {
 
-		if(is_callable($tcallback)) {
+			if(is_callable($tcallback)) {
 
-			$args = [];
+				$args = [];
 
-			$args[] = $this;
+				$args[] = $this;
 
-			$args[] = json_decode(json_encode($data, true));
+				$args[] = json_decode(json_encode($data, true));
 
-			return call_user_func_array($tcallback, $args);
+				return call_user_func_array($tcallback, $args);
+			}
+			else {
+
+				return $data;	
+			}
 		}
-		else {
 
-			return$data;	
-		}
+		return NULL;
 	}
 
-	public function sql()
-	{
+	public function sql() {
+
 		return $this->query;
 	}
 }

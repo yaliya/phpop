@@ -24,7 +24,7 @@ $app = new App\App([
 
 $app->singleton("database", function() {
 
-	return App\Providers\Database::init("localhost", "homestead", "homestead", "secret");
+	return new App\Providers\Database("localhost", "homestead", "homestead", "secret");
 });
 
 //Create twig templating engine instance

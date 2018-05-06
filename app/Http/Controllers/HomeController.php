@@ -8,27 +8,17 @@ class HomeController
 	{
 		$users = $app->database
 
-		->raw("SELECT * FROM posts")
+		->select('*')
 
-		->get(function($query, $post) {
+		->from('users')
 
-			return [
+		->where('email', 'yaliyyaa@gmail.com')
 
-				'title' => $post->title,
+		->where('password', 'test123')
 
-				'body' => $post->body,
+		->orWhere('password', 'test123')
 
-				'publisher' => $query->raw("SELECT * FROM users WHERE id = :id", [':id' => $post->users_id])->get(function($query, $user) {
-
-					return [
-
-						'id' => $user->id,
-
-						'name' => $user->name
-					];
-				})
-			];
-		});
+		->get();
 
 		return $app->twig->render('home.html', compact('users'));
 	}

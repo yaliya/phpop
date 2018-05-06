@@ -4,8 +4,13 @@ namespace App\Http\Controllers;
 
 class AuthenticateController
 {
-	public function index($app)
+	public function index($app, $request, $response)
 	{
+		if($app->session()->has("auth")) {
+
+			return $response->redirect("/admin");
+		}
+
 		return $app->twig->render("auth/login.html");
 	}
 
@@ -19,7 +24,7 @@ class AuthenticateController
 	
 				->where('email', $request->input('username'))
 	
-				->andWhere('password', $request->input('password'))
+				->where('password', $request->input('password'))
 	
 				->first();
 
