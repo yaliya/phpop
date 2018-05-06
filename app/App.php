@@ -22,8 +22,6 @@ class App
 	
 	protected $middleware;
 
-	protected $processed;
-
 	public function __construct($config = ["debug" => false])
 	{
 		$this->config = $config;
@@ -33,8 +31,6 @@ class App
 		$this->request = new Request;
 
 		$this->response = new Response;
-
-		$this->processed = false;
 	}
 
 	public function config() 
@@ -65,6 +61,8 @@ class App
 		{
 			$this->$obj = $instance;
 		}
+
+		return $instance;
 	}
 
 	private function processRequest($method, $pattern, $callback = null, $middleware = null)

@@ -1,37 +1,48 @@
 <?php 
 
-$start_time = microtime(TRUE);
-
+//Require autoload
 require "../vendor/autoload.php";
 
+//Initialize new App
 $app = new App\App([
-
 	//Debug info
 	'debug' => true,
-	
 	//Application name
 	'name' 	=> 'Aggregate',
-	
+	//Application directorh
+	'dir' 	=> __DIR__ . '/../',
 	//Default views directory
 	'views'	=> '../resources/views',
-	
 	//Default middleware directory
 	'middleware' => 'App\Http\Middleware',
-	
 	//Default controllers directory
 	'controllers' => 'App\Http\Controllers',
 ]);
 
-$app->singleton("database", function() {
+//Configure environment
+$app->singleton('env', function() use($app) {
+	//Intialize Dotenv and load .env from app dir
+	return new \Dotenv\Dotenv($app->config()['dir']); })->load();
 
-	return new App\Providers\Database("localhost", "homestead", "homestead", "secret");
+//Initialize database connection
+$app->singleton("database", function() {
+	//Return database instance to singleton
+	return new App\Providers\Database(
+		//Database host
+		getenv('DB_HOST'), 
+		//Database name
+		getenv('DB_NAME'), 
+		//Database user
+		getenv('DB_USER'),
+		//Database pass		
+		getenv('DB_PASS'));
 });
 
 //Create twig templating engine instance
 $app->singleton("twig", function() use($app) {
-
+	//Intialize twig filesystem loader
     $loader = new \Twig_Loader_Filesystem($app->config()["views"]);
-
+    //Return twig environment instance
     return new \Twig_Environment($loader, $app->config());
 });
 
@@ -40,7 +51,3 @@ require_once "../routes/web.php";
 
 //Require api routes
 require_once "../routes/api.php";
-
-$end_time = microtime(TRUE);
-
-echo "<center><small>Execution time " . date("H:i:s:m", $end_time - $start_time) . "</small></center>";
