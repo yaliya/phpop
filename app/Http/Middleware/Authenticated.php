@@ -8,6 +8,7 @@ class Authenticated
 {
 	public function request($app, $request, $response)
 	{
+
 		if($app->session()->has("auth")) {
 
 			$app->singleton("auth", function() use($app) {

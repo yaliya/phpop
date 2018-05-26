@@ -16,7 +16,7 @@ class Response
 
 	public function headers($code, $type = 'text/plain')
 	{
-		header_remove();
+		//header_remove();
 
 		header('Status: '.$code);
 

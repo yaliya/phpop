@@ -1,9 +1,10 @@
 <?php 
 
-namespace App\Providers;
+namespace App\Common\Services;
 
-class Database
+class DBTemporal
 {
+
 	private $query = '';
 
 	private $table = '';
@@ -91,7 +92,7 @@ class Database
 			list($field, $operator, $value, $plain) = func_get_args();
 		}
 
-		$query = @end(explode('(', $this->query));
+		$query = @end(explode('( SELECT', $this->query));
 
 		if(strpos($query, 'WHERE') !== false) {
 			
@@ -151,9 +152,10 @@ class Database
 			list($field, $operator, $value) = func_get_args();
 		}
 
+
 		$query = @end(explode('(', $this->query));
 
-		if(strpos($query, 'WHERE') !== false || strpos($query, 'AND') !== false) {
+		if(strpos($query, 'WHERE') !== false) {
 
 			if(array_key_exists(':'.$field, $this->values)) {
 
@@ -184,7 +186,6 @@ class Database
 
 	public function whereHas($relation, $callback)
 	{
-
 		$this->table = explode('.', $relation)[0];
 
 		if(count(explode('WHERE', $this->query)) > 1 || count(explode('WHERE EXISTS (', $this->query)) > 1) {
@@ -205,7 +206,6 @@ class Database
 
 	public function whereHasNot($relation, $callback)
 	{
-
 		$this->table = explode('.', $relation)[0];
 
 		if(count(explode('WHERE', $this->query)) > 1 || count(explode('WHERE NOT EXISTS (', $this->query)) > 1) {
@@ -226,16 +226,39 @@ class Database
 
 	public function whereIn($attribute, $values)
 	{
-		$query = @end(explode('(', $this->query));
+		$subsets = explode('( SELECT', $this->query);
 
-		if(strpos($query, 'WHERE') !== false) {
-			
-			$this->query .= 'AND ( ';
+		$query = @end($subsets);
+
+		if(strpos($query, ')') !== false) {
+
+			$endsets = explode(')', $query);
+
+			$query = $subsets[count($endsets) - count($endsets)];
+
+			if(strpos($query, 'WHERE') !== false) {
+				
+				$this->query .= 'AND ( ';
+			}
+
+			else {
+
+				$this->query .= 'WHERE ( ';
+			}	
 		}
-
 		else {
 
-			$this->query .= 'WHERE ( ';
+			//Subquery
+				
+			if(strpos($query, 'WHERE') !== false) {
+				
+				$this->query .= 'AND ( ';
+			}
+
+			else {
+
+				$this->query .= 'WHERE ( ';
+			}
 		}
 
 		$index = 0;
@@ -282,7 +305,7 @@ class Database
 		}
 
 		//Close query
-		$this->query .= ')';
+		$this->query .= ') ';
 
 		return $this;
 	}
@@ -344,18 +367,15 @@ class Database
 		return $this;
 	}
 
-	public function withMany($with, $rel = [])
+	public function count()
 	{
-		$this->relations['withMany'][] = ['table' => $with, 'attributes' => $rel];
+		$query = str_replace('SELECT *', 'SELECT COUNT("*")', $this->query);
 
-		return $this;
-	}
+		$stmt = $this->connection->prepare($query);
 
-	public function withOne($with, $rel = [])
-	{
-		$this->relations['withOne'][] = ['table' => $with, 'attributes' => $rel];
+		$stmt->execute($this->values);
 
-		return $this;
+		return (int) $stmt->fetchColumn();
 	}
 
 	public function get($tcallback = NULL)
@@ -416,6 +436,28 @@ class Database
 		}
 
 		return NULL;
+	}
+
+	public function execute($query, $values = [], $callback = NULL) {
+
+		$stmt = $this->connection->prepare($query);
+
+		$stmt->execute($values);
+
+		$data = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+		if(is_callable($callback)) {
+
+			$args = [];
+
+			$args[] = $this;
+
+			$args[] = json_decode(json_encode($data, true));
+
+			return call_user_func_array($callback, $args);
+		}
+
+		return $data;
 	}
 
 	public function sql() {
