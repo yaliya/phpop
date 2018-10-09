@@ -203,6 +203,26 @@ class DBTemporal
 
 		return $this;
 	}
+	
+	public function orWhereHas($relation, $callback)
+	{
+		$this->table = explode('.', $relation)[0];
+
+		if(count(explode('WHERE', $this->query)) > 1 || count(explode('WHERE EXISTS (', $this->query)) > 1) {
+
+			$this->query .= 'OR EXISTS ( SELECT 1 FROM ' . $relation . ' ';
+		}
+		else {
+
+			$this->query .= 'WHERE EXISTS ( SELECT 1 FROM ' . $relation . ' ';
+		}
+
+		call_user_func_array($callback, [$this]);
+
+		$this->query .= ' ) ';
+
+		return $this;
+	}
 
 	public function whereHasNot($relation, $callback)
 	{
@@ -211,6 +231,26 @@ class DBTemporal
 		if(count(explode('WHERE', $this->query)) > 1 || count(explode('WHERE NOT EXISTS (', $this->query)) > 1) {
 
 			$this->query .= 'AND NOT EXISTS ( SELECT 1 FROM ' . $relation . ' ';
+		}
+		else {
+
+			$this->query .= 'WHERE NOT EXISTS ( SELECT 1 FROM ' . $relation . ' ';
+		}
+
+		call_user_func_array($callback, [$this]);
+
+		$this->query .= ' ) ';
+
+		return $this;
+	}
+	
+	public function orWhereHasNot($relation, $callback)
+	{
+		$this->table = explode('.', $relation)[0];
+
+		if(count(explode('WHERE', $this->query)) > 1 || count(explode('WHERE NOT EXISTS (', $this->query)) > 1) {
+
+			$this->query .= 'OR NOT EXISTS ( SELECT 1 FROM ' . $relation . ' ';
 		}
 		else {
 
@@ -298,6 +338,179 @@ class DBTemporal
 			if($index != count($values) - 1) {
 				//Appends OR to query
 				$this->query .= ' OR ';
+			}
+
+			//Index
+			$index++;
+		}
+
+		//Close query
+		$this->query .= ') ';
+
+		return $this;
+	}
+	
+	public function orWhereIn($attribute, $values)
+	{
+		$subsets = explode('( SELECT', $this->query);
+
+		$query = @end($subsets);
+
+		if(strpos($query, ')') !== false) {
+
+			$endsets = explode(')', $query);
+
+			$query = $subsets[count($endsets) - count($endsets)];
+
+			if(strpos($query, 'WHERE') !== false) {
+				
+				$this->query .= 'OR ( ';
+			}
+
+			else {
+
+				$this->query .= 'WHERE ( ';
+			}	
+		}
+		else {
+
+			//Subquery
+				
+			if(strpos($query, 'WHERE') !== false) {
+				
+				$this->query .= 'OR ( ';
+			}
+
+			else {
+
+				$this->query .= 'WHERE ( ';
+			}
+		}
+
+		$index = 0;
+
+		$operator = '=';
+
+		if(func_num_args() == 2) {
+
+			list($attribute, $values) = func_get_args();
+		}
+
+		if(func_num_args() == 3) {
+
+			list($attributes, $operator, $values) = func_get_args();
+		}
+
+		//Begin loop values
+		foreach($values as $value) {
+
+			//:attribute_0, :attribute_1, :attribute_2
+			$param = $attribute . '_' . $index;
+
+			if(array_key_exists(':'.$param, $this->values)) {
+				
+				$param = $param . '_' . count($this->values);
+
+				$this->values[':'.$param] = $value;
+			}
+			else {
+
+				$this->values[':'.$param] = $value;
+			}
+
+			//append to query attribute = :attribute_0
+			$this->query .= $attribute . ' ' . $operator . ' ' . ':' . $param;
+			//If not in end of array
+			if($index != count($values) - 1) {
+				//Appends OR to query
+				$this->query .= ' OR ';
+			}
+
+			//Index
+			$index++;
+		}
+
+		//Close query
+		$this->query .= ') ';
+
+		return $this;
+	}
+	
+	public function whereNotIn($attribute, $values)
+	{
+		$subsets = explode('( SELECT', $this->query);
+
+		$query = @end($subsets);
+
+		if(strpos($query, ')') !== false) {
+
+			$endsets = explode(')', $query);
+
+			$query = $subsets[count($endsets) - count($endsets)];
+
+			if(strpos($query, 'WHERE') !== false) {
+				
+				$this->query .= 'AND (';
+			}
+
+			else {
+
+				$this->query .= 'WHERE (';
+			}	
+		}
+		else {
+
+			//Subquery
+			if(strpos($query, 'WHERE') !== false) {
+				
+				$this->query .= 'AND (';
+			}
+
+			else {
+
+				$this->query .= 'WHERE (';
+			}
+		}
+
+		$index = 0;
+
+		$operator = '!=';
+
+		if(func_num_args() == 2) {
+
+			list($attribute, $values) = func_get_args();
+		}
+
+		//Begin loop values
+		foreach($values as $value) {
+
+			//:attribute_0, :attribute_1, :attribute_2
+			$param = $attribute . '_' . $index;
+
+			if(array_key_exists(':'.$param, $this->values)) {
+				
+				$param = $param . '_' . count($this->values);
+
+				$this->values[':'.$param] = $value;
+			}
+			else {
+
+				$this->values[':'.$param] = $value;
+			}
+
+			// //append to query attribute = :attribute_0
+			// $this->query .= ':' . $param;
+			// //If not in end of array
+			// if($index != count($values) - 1) {
+			// 	//Appends OR to query
+			// 	$this->query .= ',';
+			// }
+			//append to query attribute = :attribute_0
+			$this->query .= $attribute . ' ' . $operator . ' ' . ':' . $param;
+			//If not in end of array
+			if($index != count($values) - 1) {
+				//Appends OR to query
+				$this->query .= ' AND ';
 			}
 
 			//Index
