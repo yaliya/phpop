@@ -14,9 +14,8 @@
   "license": "ISC",
   "devDependencies": {
     "bootstrap": "^3.3.7",
-    "jquery": "^3.2.1"
-  },
-  "dependencies": {
+    "jquery": "^3.2.1",
     "laravel-mix": "^2.1.14"
-  }
+  },
+  "dependencies": {}
 }
