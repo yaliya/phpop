@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Queue\Consumer;
+
 class Worker
 {
 	public function process()
@@ -36,9 +38,16 @@ class Worker
 						mkdir($controllers . "/" . $directories);
 					}
 
+					if(file_exists($controllers . "/" . $directories . "/" . ucfirst($file) . ".php")) {
+
+						echo "Controller already exists !\r\n";
+
+						exit(1);
+					}
+
 					$contents = "<?php\n\n";
 
-					$contents .= "namespace " . $namespace . ";\n\n";
+					$contents .= "namespace " . $namespace . "\n\n";
 
 					$contents .= "class " . $file . "\n";
 					
@@ -56,7 +65,7 @@ class Worker
 				}
 			}
 
-			if($args[1] == "make:middleware")
+			if($args[1] == "make:job") 
 			{
 				if(isset($args[2]))
 				{
@@ -67,9 +76,9 @@ class Worker
 
 					array_pop($dir);
 
-					$middlewares = __DIR__ . "/../Http/Middleware/";
+					$jobs = __DIR__ . "/../Queue/Jobs/";
 
-					$namespace = "App\Http\Middleware";
+					$namespace = "App\Queue\Jobs";
 
 					$namespace .= "\\" . implode("\\", $dir);
 
@@ -77,9 +86,16 @@ class Worker
 
 					$directories = implode("/", $dir);
 
-					if(!is_dir($controllers . "/" . $directories)) {
+					if(!is_dir($jobs . "/" . $directories)) {
 
-						mkdir($controllers . "/" . $directories);
+						mkdir($jobs . "/" . $directories);
+					}
+
+					if(file_exists($jobs . "/" . $directories . "/" . ucfirst($file) . ".php")) {
+
+						echo "Job already exists !\r\n";
+
+						exit(1);
 					}
 
 					$contents = "<?php\n\n";
@@ -90,18 +106,30 @@ class Worker
 					
 					$contents .= "{\n";
 					
-					$contents .= "\tpublic function request" . '($app, $request, $response)' . "\n\t{\n";
+					$contents .= "\tpublic function handle() \n\t{\n";
 					
-					$contents .= "\t\t//Code\n\n";
-
-					$contents .= "\t\treturn " . '$response->next();';
+					$contents .= "\t\t//Code\n";
 					
-					$contents .= "\n\t}\n";
+					$contents .= "\t}\n";
 					
 					$contents .= "};";
 					
-					file_put_contents($middlewares . "/" . $directories . "/" .ucfirst($file) . ".php", $contents);
+					file_put_contents($jobs . "/" . $directories . "/" .ucfirst($file) . ".php", $contents);
 				}
+			}
+
+			if($args[1] == 'queue:listen')
+			{
+				$queue = 'default';
+
+				if(isset($args[2])) {
+
+					$queue = $args[2];
+				}
+
+				$consumer = new Consumer($queue);
+
+				$consumer->listen();
 			}
 		}
 	}

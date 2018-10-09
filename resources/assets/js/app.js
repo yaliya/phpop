@@ -1,5 +1,1 @@
-require('jquery')
-
-require('bootstrap')
-
-require('../css/app.scss')
+window.$ = window.jQuery = require('jquery')
