@@ -1,8 +1,8 @@
 <?php 
 
-namespace App\Common\Services;
+namespace App\Providers;
 
-class DBTemporal
+class Database
 {
 
 	private $query = '';
