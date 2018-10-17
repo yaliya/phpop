@@ -54,6 +54,74 @@ class Database
 		return $this;
 	}
 
+	public function insert(...$fiels)
+	{
+		$this->values = func_get_args();
+
+		return $this;
+	}
+
+	public function values(...$values)
+	{
+		$this->values = array_combine($this->values, func_get_args());
+
+		return $this;
+	}
+
+	public function update($table)
+	{
+		$this->table = $table;
+
+		return $this;
+	}
+
+	public function set(...$fields)
+	{
+		$this->values = func_get_args();
+
+		return $this;
+	}
+
+	public function to(...$values)
+	{
+		$this->values = array_combine($this->values, func_get_args());
+
+		$this->query = 'UPDATE ' . $this->table . ' SET ';
+
+		foreach($this->values as $param => $value) {
+
+			$this->query .= $param . '=' . ':' . $param;
+		}
+
+		$this->query .= ' ';
+
+		return $this;
+	}
+
+	public function into($table, $callback = NULL)
+	{
+		$this->table = $table;
+
+		$this->query = 'INSERT INTO ' . $table . '(';
+
+		$this->query .= implode(',', array_keys($this->values));
+
+		$this->query .= ') VALUES (';
+
+		$values = [];
+
+		foreach($this->values as $param => $value) {
+
+			$values[] = ':' . $param;
+		}
+
+		$this->query .= implode(',', $values);
+
+		$this->query .= ')';
+
+		return $this;
+	}
+
 	public function append($query, $values = [])
 	{
 		if(is_callable($query)) {
@@ -628,9 +696,25 @@ class Database
 
 		$stmt->execute($this->values);
 
-		$data = $stmt->fetch(\PDO::FETCH_ASSOC);
+		$data = null;
 
 		if($stmt->rowCount() > 0) {
+
+			if(strpos($this->query, 'SELECT') !== false) {
+
+				$data = $stmt->fetch(\PDO::FETCH_ASSOC);
+			}
+
+			else if(strpos($this->query, 'INSERT INTO') !== false) {
+
+				$this->values = [];
+
+				$this->query = 'SELECT * FROM ' . $this->table . ' WHERE id=:id';
+
+				$this->values[':id'] = $this->connection->lastInsertId();
+
+				return $this->first($tcallback);
+			}
 
 			if(is_callable($tcallback)) {
 
