@@ -54,55 +54,11 @@ class Database
 		return $this;
 	}
 
-	public function insert(...$fiels)
+	public function insert($data)
 	{
-		$this->values = func_get_args();
+		$this->values = $data; 
 
-		return $this;
-	}
-
-	public function values(...$values)
-	{
-		$this->values = array_combine($this->values, func_get_args());
-
-		return $this;
-	}
-
-	public function update($table)
-	{
-		$this->table = $table;
-
-		return $this;
-	}
-
-	public function set(...$fields)
-	{
-		$this->values = func_get_args();
-
-		return $this;
-	}
-
-	public function to(...$values)
-	{
-		$this->values = array_combine($this->values, func_get_args());
-
-		$this->query = 'UPDATE ' . $this->table . ' SET ';
-
-		foreach($this->values as $param => $value) {
-
-			$this->query .= $param . '=' . ':' . $param;
-		}
-
-		$this->query .= ' ';
-
-		return $this;
-	}
-
-	public function into($table, $callback = NULL)
-	{
-		$this->table = $table;
-
-		$this->query = 'INSERT INTO ' . $table . '(';
+		$this->query = 'INSERT INTO table (';
 
 		$this->query .= implode(',', array_keys($this->values));
 
@@ -120,6 +76,44 @@ class Database
 		$this->query .= ')';
 
 		return $this;
+	}
+
+	public function into($table, $callback = NULL)
+	{
+		$this->table = $table;
+
+		$this->query = str_replace('table', $table, $this->query);
+
+		return $this->first($callback);
+	}
+
+	public function save($data)
+	{
+		$this->values = $data;
+
+		$this->query = 'UPDATE table SET ';
+
+		foreach($this->values as $param => $value) {
+
+			$this->query .= $param . '=' . ':' . $param;
+		}
+
+		$this->query .= ' ';
+
+		return $this;
+	}
+
+	public function on($table, $callback = NULL)
+	{
+		$this->table = $table;
+
+		$this->query = str_replace('table', $table, $this->query);
+
+		$stmt = $this->connection->prepare($this->query);
+
+		$stmt->execute($this->values);
+
+		return $stmt->rowCount();
 	}
 
 	public function append($query, $values = [])
@@ -623,15 +617,6 @@ class Database
 		return $this;
 	}
 
-	public function join($table)
-	{
-		$this->query .= 'JOIN ' . $table . ' ON ' . $this->table;
-
-		$this->query .= '.' .'id' . '=' . $table . '.' . $this->table.'_id ';
-
-		return $this;
-	}
-
 	public function orderBy($attrib, $value)
 	{
 		$this->query .= 'ORDER BY ' . $attrib . ' ' . $value . ' ';
@@ -733,28 +718,6 @@ class Database
 		}
 
 		return NULL;
-	}
-
-	public function execute($query, $values = [], $callback = NULL) {
-
-		$stmt = $this->connection->prepare($query);
-
-		$stmt->execute($values);
-
-		$data = $stmt->fetch(\PDO::FETCH_ASSOC);
-
-		if(is_callable($callback)) {
-
-			$args = [];
-
-			$args[] = $this;
-
-			$args[] = json_decode(json_encode($data, true));
-
-			return call_user_func_array($callback, $args);
-		}
-
-		return $data;
 	}
 
 	public function sql() {
