@@ -8,7 +8,7 @@ $app = new App\App([
 	//Debug info
 	'debug' => true,
 	//Application name
-	'name' 	=> 'Aggregate',
+	'name' 	=> 'PHPOP',
 	//Application directorh
 	'dir' 	=> __DIR__ . '/../',
 	//Default views directory
