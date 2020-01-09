@@ -135,7 +135,7 @@ class App
 				{
 					$callback = explode("@", $callback);
 					
-					if(sizeof($callback == 2)) {
+					if(sizeof($callback) == 2) {
 
 						$class = $callback[0];
 

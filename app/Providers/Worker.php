@@ -136,7 +136,7 @@ class Worker
 			{
 				echo "Serving application on http://localhost:8000\n";
 
-				exec('cd ' . __DIR__ . '/../../public && php -S localhost:8000');
+				exec('cd ' . __DIR__ . '/../../ && php -S localhost:8000 -t public');
 			}
 		}
 	}
